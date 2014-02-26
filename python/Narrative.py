@@ -9,34 +9,41 @@ class NarrativeBank:
 
 	def __init__(self, dep_dir):
 		self.events = defaultdict(int)
-		self.eventPairs = defaultdict(lambda: defaultdict(int)) 
+		self.pairs = defaultdict(int)
 		self.build(dep_dir)
 
-	def pmi (self, entity, verb1, verb2):
-		c = self.eventPairs[entity][(verb1, verb2)]
-		N = self.num_events(entity)
-		M = self.num_pairs(entity)
-		v1 = self.count(verb1, entity)
-		v2 = self.count(verb2, entity)
+	# PMI -------------------------------------------------------------------------------
 
-		score = log (((c * N * N) + 0.0) /
-						(v1 * v2 * M))
-		return score * self.discount(c, v1, v2)
+	def pmi (self, entity, verb1, verb2):		
+		cooccur = self.cooccur(entity, verb1, verb2)
+		num_events = self.num_events(entity)
+		num_pairs = self.num_pairs(entity)
+		count1 = self.count(verb1, entity)
+		count2 = self.count(verb2, entity)
+
+		score = log (((cooccur * num_events * num_events) + 0.0) / 
+						(count1 * count2 * num_pairs))
+
+		return score * self.discount(cooccur, count1, count2)
 
 	def discount (self, c, v1, v2):
 		v = min(v1, v2)
-		return ((c * v + 0.0) / 
-				((c + 1) * (v + 1)))
+		return ((c * v + 0.0) / ((c + 1) * (v + 1)))
+
+	# Counts ----------------------------------------------------------------------------
 
 	def count (self, verb, entity):
 		Event = namedtuple("Event", ["verb", "entity"])
 		return self.events[Event(verb=verb, entity=entity)]
 
+	def cooccur (self, entity, verb1, verb2):
+		Pair = namedtuple("Pair", ["entity", "verb1", "verb2"])
+		return self.pairs[Pair(entity=entity, verb1=verb1, verb2=verb2)]
+
+	# Events methods -------------------------------------------------------------------
+
 	def num_events (self, entity):
 		return sum([self.events[x] for x in self.events_for(entity)])
-
-	def unique_events (self, entity):
-		return len([self.events[x] for x in self.events_for(entity)])
 
 	def events_for (self, entity):
 		return [x for x in self.events.keys() if x.entity==entity]
@@ -47,11 +54,19 @@ class NarrativeBank:
 	def entities_in (self, verb):
 		return [x for x in self.events.keys() if x.verb==verb]
 
-	def num_pairs (self, entity):
-		return sum(self.eventPairs[entity].values())
+	# Pairs methods --------------------------------------------------------------------
 
-	def unique_pairs (self, entity):
-		return len(self.eventPairs[entity].values())
+	def num_pairs (self, entity):
+		return sum([self.pairs[x] for x in self.pairs_for(entity)])
+
+	def pairs_for (self, entity):
+		return [x for x in self.pairs.keys() if x.entity==entity]
+
+	def num_event_pairs (self, verb1, verb2):
+		return sum([self.pairs[x] for x in self.pairs_involving(verb1, verb2)])
+
+	def pairs_involving (self, verb1, verb2):
+		return [x for x in self.pairs.keys() if x.verb1==verb1 and x.verb2==verb2]
 
 	#-----------------------------------------------------------------------------------
 
@@ -62,6 +77,7 @@ class NarrativeBank:
 		"""
 
 		Event = namedtuple("Event", ["verb", "entity"])
+		Pair = namedtuple("Pair", ["entity", "verb1", "verb2"])
 
 		for i, path in enumerate(listdir(dep_dir)):
 			f = join(dep_dir, path)
@@ -74,7 +90,7 @@ class NarrativeBank:
 							self.events[Event(verb=verbs[i], entity=ent)] += 1
 							for j in range(i+1, len(verbs)):
 								if (verbs[i] != verbs[j]):
-									self.eventPairs[ent][(verbs[i], verbs[j])] += 1
+									self.pairs[Pair(entity=ent, verb1=verbs[i], verb2=verbs[j])] += 1
 							
 				# except Exception, err:
 					# sys.stderr.write('FILE: %s\n' % f)
@@ -89,9 +105,9 @@ class NarrativeBank:
 		for sent in doc:
 			for dep in self.constrain(sent.deps):
 				if (word):
-					entityVerbMap[dep.dep.word.lower()].append(dep.gov.word.lower())
+					entityVerbMap[dep.dep.word].append(dep.gov.word)
 				else:
-					entityVerbMap[dep.dep.lem.lower()].append(dep.gov.lem.lower())
+					entityVerbMap[dep.dep.lem].append(dep.gov.lem)
 		return entityVerbMap
 
 	def constrain (self, dgraph):
