@@ -8,17 +8,16 @@ import corenlp as clnp
 class NarrativeBank:
 
 	def __init__(self, dep_dir):
-		self.Event = namedtuple("Event", ["verb", "entity"])
 		self.events = defaultdict(int)
-		self.eventPairs = defaultdict(lambda: defaultdict(int))
+		self.eventPairs = defaultdict(lambda: defaultdict(int)) 
 		self.build(dep_dir)
 
 	def pmi (self, entity, verb1, verb2):
 		c = self.eventPairs[entity][(verb1, verb2)]
 		N = self.num_events(entity)
 		M = self.num_pairs(entity)
-		v1 = self.events[self.Event(verb=verb1, entity=entity)]
-		v2 = self.events[self.Event(verb=verb2, entity=entity)]
+		v1 = self.count(verb1, entity)
+		v2 = self.count(verb2, entity)
 
 		score = log (((c * N * N) + 0.0) /
 						(v1 * v2 * M))
@@ -28,6 +27,10 @@ class NarrativeBank:
 		v = min(v1, v2)
 		return ((c * v + 0.0) / 
 				((c + 1) * (v + 1)))
+
+	def count (self, verb, entity):
+		Event = namedtuple("Event", ["verb", "entity"])
+		return self.events[Event(verb=verb, entity=entity)]
 
 	def num_events (self, entity):
 		return sum([self.events[x] for x in self.events_for(entity)])
@@ -49,6 +52,8 @@ class NarrativeBank:
 
 	def unique_pairs (self, entity):
 		return len(self.eventPairs[entity].values())
+
+	#-----------------------------------------------------------------------------------
 
 	def build (self, dep_dir):
 		"""
