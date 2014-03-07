@@ -4,6 +4,7 @@ from os.path import isfile, join
 from collections import defaultdict, namedtuple
 from math import log
 import corenlp as clnp
+import time
 
 class NarrativeBank:
 
@@ -14,31 +15,69 @@ class NarrativeBank:
 
 	# PMI -------------------------------------------------------------------------------
 
-	def pmi (self, entity, verb1, verb2):		
-		cooccur = self.cooccur(entity, verb1, verb2)
-		num_events = self.num_events(entity)
-		num_pairs = self.num_pairs(entity)
-		count1 = self.count(verb1, entity)
-		count2 = self.count(verb2, entity)
+	def pmi (self, verb1, verb2, entity=None):
 
-		score = log (((cooccur * num_events * num_events) + 0.0) / 
-						(count1 * count2 * num_pairs))
+		if (entity):
+			# Protag-wise	
+			cooccur = self.cooccur(verb1, verb2, entity)
+			num_events = self.num_events(entity)
+			num_pairs = self.num_pairs(entity)
+			count1 = self.count(verb1, entity)
+			count2 = self.count(verb2, entity)
+		else:
+			# Corpus-wide
+			cooccur = self.num_event_pairs(verb1, verb2)
+			num_events = sum(self.events.values())
+			num_pairs = sum(self.pairs.values())
+			count1 = self.num_protags(verb1)
+			count2 = self.num_protags(verb2)
 
-		return score * self.discount(cooccur, count1, count2)
+		if (cooccur > 0):
+			score = log (float(cooccur * num_events * num_events) / 
+							(count1 * count2 * num_pairs))
+			return score * self.discount(cooccur, count1, count2)
+		else:
+			return None
 
 	def discount (self, c, v1, v2):
 		v = min(v1, v2)
 		return ((c * v + 0.0) / ((c + 1) * (v + 1)))
 
+	# Chain -----------------------------------------------------------------------------
+
+	def chain (self, head, entity, size=6, reverse=False):
+		events = [head]
+		while len(events) < size:
+			score = defaultdict(float)
+
+			for verb1 in events:
+				for pair, count in self.pairs.items():
+					if (count > 0) and (pair.entity==entity):
+						if (pair.verb1==verb1) and (pair.verb2 not in events):
+							score[pair.verb2] += self.pmi(verb1, pair.verb2, entity)
+						if (reverse) and (pair.verb2==verb1) and (pair.verb1 not in events):
+							score[pair.verb1] += self.pmi(pair.verb1, verb1, entity)
+
+			if len(score) > 0:
+				best, val = max(score.items(), key=lambda x: x[1])
+				if (val > 0):
+					events.append(best)
+				else:
+					break
+			else:
+				break
+
+		return events
+
 	# Counts ----------------------------------------------------------------------------
 
 	def count (self, verb, entity):
 		Event = namedtuple("Event", ["verb", "entity"])
-		return self.events[Event(verb=verb, entity=entity)]
+		return self.events.get(Event(verb=verb, entity=entity), 0)
 
-	def cooccur (self, entity, verb1, verb2):
+	def cooccur (self, verb1, verb2, entity):
 		Pair = namedtuple("Pair", ["entity", "verb1", "verb2"])
-		return self.pairs[Pair(entity=entity, verb1=verb1, verb2=verb2)]
+		return self.pairs.get(Pair(entity=entity, verb1=verb1, verb2=verb2), 0)
 
 	# Events methods -------------------------------------------------------------------
 
@@ -89,8 +128,8 @@ class NarrativeBank:
 						for i in range(0, len(verbs)):
 							self.events[Event(verb=verbs[i], entity=ent)] += 1
 							for j in range(i+1, len(verbs)):
-								if (verbs[i] != verbs[j]):
-									self.pairs[Pair(entity=ent, verb1=verbs[i], verb2=verbs[j])] += 1
+								# if (verbs[i] != verbs[j]):
+								self.pairs[Pair(entity=ent, verb1=verbs[i], verb2=verbs[j])] += 1
 							
 				# except Exception, err:
 					# sys.stderr.write('FILE: %s\n' % f)
