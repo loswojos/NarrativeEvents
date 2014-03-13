@@ -5,7 +5,7 @@ from collections import defaultdict, namedtuple
 from math import log
 import corenlp as clnp
 import time
-
+from itertools import izip
 
 Event = namedtuple("Event", ["verb", "entity"])
 Pair = namedtuple("Pair", ["entity", "verb1", "verb2"])
@@ -122,11 +122,12 @@ class NarrativeBank:
         for f in filelist:
             doc = clnp.Document(f)
             for ent, verbs in self.aggregate(doc).iteritems():
-                if len(verbs) > 1:
-                    for i in range(0, len(verbs)):
-                        self.events[Event(verb=verbs[i], entity=ent)] += 1
-                        for j in range(i+1, len(verbs)):
-                            self.pairs[Pair(entity=ent, verb1=verbs[i], verb2=verbs[j])] += 1
+                if len(verbs) > 1: 
+                    for v1, v2 in izip(verbs[:-1], verbs[1:]):
+                        self.events[Event(verb=v1, entity=ent)] += 1
+                        self.pairs[Pair(entity=ent, verb1=v1, verb2=v2)] += 1
+                    self.events[Event(verb=verbs[-1], entity=ent)] += 1
+                        
                             
 
     def aggregate (self, doc, word=False):
