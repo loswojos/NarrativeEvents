@@ -16,9 +16,13 @@ class NarrativeBank:
 	# PMI -------------------------------------------------------------------------------
 
 	def pmi (self, verb1, verb2, entity=None):
+		"""
+		Returns the PMI between two events (verbs) given a protagonist. If none is
+		provided, the PMI is computed corpus-wide.
+		"""
 
 		if (entity):
-			# Protag-wise	
+			# Protagonist-wise	
 			cooccur = self.cooccur(verb1, verb2, entity)
 			num_events = self.num_events(entity)
 			num_pairs = self.num_pairs(entity)
@@ -35,11 +39,11 @@ class NarrativeBank:
 		if (cooccur > 0):
 			score = log (float(cooccur * num_events * num_events) / 
 							(count1 * count2 * num_pairs))
-			return score * self.discount(cooccur, count1, count2)
+			return score * self.__discount(cooccur, count1, count2)
 		else:
 			return None
 
-	def discount (self, c, v1, v2):
+	def __discount (self, c, v1, v2):
 		v = min(v1, v2)
 		return ((c * v + 0.0) / ((c + 1) * (v + 1)))
 
@@ -72,36 +76,45 @@ class NarrativeBank:
 	# Counts ----------------------------------------------------------------------------
 
 	def count (self, verb, entity):
+		"Returns the count for an event given a protagonist"
 		Event = namedtuple("Event", ["verb", "entity"])
 		return self.events.get(Event(verb=verb, entity=entity), 0)
 
 	def cooccur (self, verb1, verb2, entity):
+		"Returns the cooccurrence count of two events given a protagonist"
 		Pair = namedtuple("Pair", ["entity", "verb1", "verb2"])
 		return self.pairs.get(Pair(entity=entity, verb1=verb1, verb2=verb2), 0)
 
 	# Events methods -------------------------------------------------------------------
 
 	def num_events (self, entity):
+		"Returns the number of events involving a specified protagonist"
 		return sum([self.events[x] for x in self.events_for(entity)])
 
 	def events_for (self, entity):
+		"Returns all events involving a specified protagonist"
 		return [x for x in self.events.keys() if x.entity==entity]
 
 	def num_protags (self, verb):
+		"Returns the number of protagonists involved in an event."
 		return sum([self.events[x] for x in self.entities_in(verb)])
 
 	def entities_in (self, verb):
+		"Returns all protagonists involved in an event"
 		return [x for x in self.events.keys() if x.verb==verb]
 
 	# Pairs methods --------------------------------------------------------------------
 
 	def num_pairs (self, entity):
+		"Returns the number of pairs of events involving a specified protagonist"
 		return sum([self.pairs[x] for x in self.pairs_for(entity)])
 
 	def pairs_for (self, entity):
+		"Returns all pairs of events involving a specified protagonist"
 		return [x for x in self.pairs.keys() if x.entity==entity]
 
 	def num_event_pairs (self, verb1, verb2):
+		"Returns the number of pairs of events"
 		return sum([self.pairs[x] for x in self.pairs_involving(verb1, verb2)])
 
 	def pairs_involving (self, verb1, verb2):
