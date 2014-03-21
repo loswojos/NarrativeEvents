@@ -29,10 +29,10 @@ class NarrativeBank:
 
     # PMI --------------------------------------------------------------------
 
-    def pmi (self, verb1, verb2, entity=None):
+    def pmi(self, verb1, verb2, entity=None):
 
-        if (entity):
-            # Protag-wise    
+        if entity:
+            # Protag-wise
             cooccur = self.cooccur(verb1, verb2, entity)
             num_events = self.num_events(entity)
             num_pairs = self.num_pairs(entity)
@@ -46,20 +46,20 @@ class NarrativeBank:
             count1 = self.num_protags(verb1)
             count2 = self.num_protags(verb2)
 
-        if (cooccur > 0):
-            score = log (float(cooccur * num_events * num_events) / 
-                            (count1 * count2 * num_pairs))
+        if cooccur > 0:
+            score = log(cooccur * num_events * float(num_events) /
+                        (count1 * count2 * num_pairs))
             return score * self.discount(cooccur, count1, count2)
         else:
             return None
 
-    def discount (self, c, v1, v2):
+    def discount(self, c, v1, v2):
         v = min(v1, v2)
         return ((c * v + 0.0) / ((c + 1) * (v + 1)))
 
     # Chain ------------------------------------------------------------------
 
-    def chain (self, head, entity, size=6, reverse=False):
+    def chain(self, head, entity, size=6, reverse=False):
         events = [head]
         while len(events) < size:
             score = defaultdict(float)
@@ -71,8 +71,8 @@ class NarrativeBank:
                             score[pair.verb2] += self.pmi(verb1,
                                                           pair.verb2,
                                                           entity)
-                        if (reverse):
-                            if pair.verb2==verb1:
+                        if reverse:
+                            if pair.verb2 == verb1:
                                 if pair.verb1 not in events:
                                     score[pair.verb1] += self.pmi(pair.verb1,
                                                                   verb1,
@@ -80,7 +80,7 @@ class NarrativeBank:
 
             if len(score) > 0:
                 best, val = max(score.items(), key=lambda x: x[1])
-                if (val > 0):
+                if val > 0:
                     events.append(best)
                 else:
                     break
@@ -91,49 +91,49 @@ class NarrativeBank:
 
     # Counts -----------------------------------------------------------------
 
-    def count (self, verb, entity):
+    def count(self, verb, entity):
         return self.events.get(Event(verb=verb, entity=entity), 0)
 
-    def cooccur (self, verb1, verb2, entity):
+    def cooccur(self, verb1, verb2, entity):
         return self.pairs.get(Pair(entity=entity, verb1=verb1, verb2=verb2), 0)
 
     # Events methods ---------------------------------------------------------
 
-    def num_events (self, entity):
+    def num_events(self, entity):
         return sum([self.events[x] for x in self.events_for(entity)])
 
-    def events_for (self, entity):
-        return [x for x in self.events.keys() if x.entity==entity]
+    def events_for(self, entity):
+        return [x for x in self.events.keys() if x.entity == entity]
 
-    def num_protags (self, verb):
+    def num_protags(self, verb):
         return sum([self.events[x] for x in self.entities_in(verb)])
 
-    def entities_in (self, verb):
-        return [x for x in self.events.keys() if x.verb==verb]
+    def entities_in(self, verb):
+        return [x for x in self.events.keys() if x.verb == verb]
 
     # Pairs methods ----------------------------------------------------------
 
-    def num_pairs (self, entity):
+    def num_pairs(self, entity):
         return sum([self.pairs[x] for x in self.pairs_for(entity)])
 
-    def pairs_for (self, entity):
-        return [x for x in self.pairs.keys() if x.entity==entity]
+    def pairs_for(self, entity):
+        return [x for x in self.pairs.keys() if x.entity == entity]
 
-    def num_event_pairs (self, verb1, verb2):
+    def num_event_pairs(self, verb1, verb2):
         return sum([self.pairs[x] for x in self.pairs_involving(verb1, verb2)])
 
-    def pairs_involving (self, verb1, verb2):
+    def pairs_involving(self, verb1, verb2):
         return [x for x in self.pairs.keys()
                 if x.verb1 == verb1 and x.verb2 == verb2]
 
     #-------------------------------------------------------------------------
- 
+
     def add_filelist(self, filelist):
         """
-        Extracts a set of valid narrative events from a corpus, 
+        Extracts a set of valid narrative events from a corpus,
         groups by entity name, and returns an entity-verb(s) mapping.
         """
-        
+
         if self._mode == 'token':
             aggregate = self.aggregate_tokens
         elif self._mode == 'dep':
@@ -146,19 +146,18 @@ class NarrativeBank:
             return
 
         for f in filelist:
-            doc = corenlp.Document(f)                           
+            doc = corenlp.Document(f)
             for ent, verbs in aggregate(doc).items():
-                if len(verbs) > 1: 
+                if len(verbs) > 1:
                     for v1, v2 in izip(verbs[:-1], verbs[1:]):
                         self.events[Event(v1, ent)] += 1
                         self.pairs[Pair(ent, v1, v2)] += 1
                     self.events[Event(verbs[-1], ent)] += 1
-                else:        
+                else:
                     self.events[Event(verbs[0], ent)] += 1
-                            
 
     def aggregate_tokens(self, doc, word=False):
-        
+
         ent_verb_map = defaultdict(list)
         for s in doc:
             ent_cache = []
@@ -183,7 +182,7 @@ class NarrativeBank:
 
     def aggregate_deps(self, doc, word=False):
         """Extracts a set of valid narrative events from a
-        document, groups by entity name, and returns an 
+        document, groups by entity name, and returns an
         entity-verb(s) mapping."""
 
         ent_verb_map = defaultdict(list)
