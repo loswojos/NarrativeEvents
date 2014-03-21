@@ -148,10 +148,12 @@ class NarrativeBank:
         for f in filelist:
             doc = corenlp.Document(f)
             for ent, verbs in aggregate(doc).items():
-                if len(verbs) > 1:
-                    for v1, v2 in izip(verbs[:-1], verbs[1:]):
-                        self.events[Event(v1, ent)] += 1
-                        self.pairs[Pair(ent, v1, v2)] += 1
+                nverbs = len(verbs)
+                if nverbs > 1:
+                    for i in range(nverbs):
+                        for j in range(i + 1, nverbs): 
+                            self.events[Event(verbs[i], ent)] += 1
+                            self.pairs[Pair(ent, verbs[i], verbs[j])] += 1
                     self.events[Event(verbs[-1], ent)] += 1
                 else:
                     self.events[Event(verbs[0], ent)] += 1
@@ -192,7 +194,7 @@ class NarrativeBank:
         ent_verb_map = defaultdict(list)
         for sent in doc:
             for rel in sent.deps:
-                if valid_dep(rel):
+                if self.valid_dep(rel):
                     ent = unicode(rel.dep) if word else rel.dep.lem.lower()
                     verb = unicode(rel.gov) if word else rel.gov.lem.lower()
                     ent_verb_map[ent].append(verb)
