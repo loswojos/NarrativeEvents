@@ -1,17 +1,17 @@
-import sys
-from os import listdir
-from os.path import isfile, join
 from collections import defaultdict, namedtuple
 from math import log
 import corenlp as clnp
-import time
+
+Event = namedtuple("Event", ["verb", "entity"])
+Pair = namedtuple("Pair", ["entity", "verb1", "verb2"])
 
 class NarrativeBank:
 
-	def __init__(self, dep_dir):
+	def __init__(self, filelist=None):
 		self.events = defaultdict(int)
 		self.pairs = defaultdict(int)
-		self.build(dep_dir)
+		if (filelist):
+			self.build(filelist)
 
 	# PMI -------------------------------------------------------------------------------
 
@@ -122,31 +122,20 @@ class NarrativeBank:
 
 	#-----------------------------------------------------------------------------------
 
-	def build (self, dep_dir):
+	def build (self, filelist):
 		"""
 		Extracts a set of valid narrative events from a corpus, groups by entity name,
 		and returns an entity-verb(s) mapping.
 		"""
-
-		Event = namedtuple("Event", ["verb", "entity"])
-		Pair = namedtuple("Pair", ["entity", "verb1", "verb2"])
-
-		for i, path in enumerate(listdir(dep_dir)):
-			f = join(dep_dir, path)
-			if isfile(f) and ('xml' in path):
-				# try:
-				doc = clnp.Document(f)
-				for ent, verbs in self.aggregate(doc).iteritems():
-					if len(verbs) > 1:
-						for i in range(0, len(verbs)):
-							self.events[Event(verb=verbs[i], entity=ent)] += 1
-							for j in range(i+1, len(verbs)):
-								# if (verbs[i] != verbs[j]):
-								self.pairs[Pair(entity=ent, verb1=verbs[i], verb2=verbs[j])] += 1
-							
-				# except Exception, err:
-					# sys.stderr.write('FILE: %s\n' % f)
-					# sys.stderr.write('ERROR: %s\n' % str(err))
+		for doc in filelist:
+			doc = clnp.Document(f)
+			for ent, verbs in self.aggregate(doc).iteritems():
+				if len(verbs) > 1:
+					for i in range(0, len(verbs)):
+						self.events[Event(verb=verbs[i], entity=ent)] += 1
+						for j in range(i+1, len(verbs)):
+							# if (verbs[i] != verbs[j]):
+							self.pairs[Pair(entity=ent, verb1=verbs[i], verb2=verbs[j])] += 1
 
 	def aggregate (self, doc, word=False):
 		"""
