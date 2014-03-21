@@ -151,10 +151,9 @@ class NarrativeBank:
                 nverbs = len(verbs)
                 if nverbs > 1:
                     for i in range(nverbs):
+                        self.events[Event(verbs[i], ent)] += 1
                         for j in range(i + 1, nverbs): 
-                            self.events[Event(verbs[i], ent)] += 1
                             self.pairs[Pair(ent, verbs[i], verbs[j])] += 1
-                    self.events[Event(verbs[-1], ent)] += 1
                 else:
                     self.events[Event(verbs[0], ent)] += 1
 
