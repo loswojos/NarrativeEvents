@@ -160,8 +160,10 @@ class NarrativeBank:
 
         ent_verb_map = defaultdict(list)
         for s in doc:
+
             ent_cache = []
             last_verb = None
+
             for t in s:
                 if t.pos in self.noun_tags:
                     ent = unicode(t) if word else t.lem.lower()
@@ -175,9 +177,11 @@ class NarrativeBank:
                             ent_verb_map[ent].append(next_verb)
                     last_verb = next_verb
                     ent_cache = []
+
             if len(ent_cache) > 0 and last_verb is not None:
                 for ent in ent_cache:
                     ent_verb_map[ent].append(last_verb)
+
         return ent_verb_map
 
     def aggregate_deps(self, doc, word=False):
@@ -200,3 +204,40 @@ class NarrativeBank:
                 if rel.dep.pos in self.noun_tags:
                     return True
         return False
+
+    def doc_graph(self, doc, outputfile):
+
+        import pygraphviz as pgv
+        import os
+        
+        if self._mode == 'token':
+            aggregate = self.aggregate_tokens
+        elif self._mode == 'dep':
+            aggregate = self.aggregate_deps
+        else:
+            import sys
+            sys.stderr.write(u'Warning: invalid \'mode\' argument. ' +
+                             u'Doing nothing instead.\n')
+            sys.stderr.flush()
+            return
+      
+        G = pgv.AGraph(strict=False, directed=True)
+        nedges = 0     
+             
+        for ent, verbs in aggregate(doc).items():
+            if len(verbs) > 1:
+                for v1, v2 in izip(verbs[:-1], verbs[1:]):
+                    pmi = self.pmi(v1, v2, ent)
+                    if pmi is not None:
+                        edge_label = u'{}:{:2.2f}'.format(unicode(ent), pmi)
+                        G.add_edge(v1, v2, label=edge_label, key=nedges)
+                        nedges += 1                    
+               
+
+        outputdir = os.path.split(outputfile)[0]
+        if outputdir != '' and not os.path.exists(outputdir):
+            os.makedirs(outputdir)
+        G.layout(prog='dot')
+        G.draw(outputfile)
+
+
