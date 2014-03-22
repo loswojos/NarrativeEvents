@@ -56,24 +56,26 @@ class NarrativeBank:
 
     # Chain ------------------------------------------------------------------
 
-    def chain(self, head, entity, size=6, reverse=False):
+    def chain(self, head, entity=None, size=6, reverse=False):
         events = [head]
         while len(events) < size:
             score = defaultdict(float)
 
             for verb1 in events:
                 for pair, count in self.pairs.items():
-                    if count > 0 and pair.entity == entity:
-                        if pair.verb1 == verb1 and pair.verb2 not in events:
-                            score[pair.verb2] += self.pmi(verb1,
-                                                          pair.verb2,
-                                                          entity)
-                        if reverse:
-                            if pair.verb2 == verb1:
-                                if pair.verb1 not in events:
-                                    score[pair.verb1] += self.pmi(pair.verb1,
-                                                                  verb1,
-                                                                  entity)
+                    if pair.entity == entity or not entity:
+
+                        if count > 0:
+                            if pair.verb1 == verb1 and pair.verb2 not in events:
+                                score[pair.verb2] += self.pmi(verb1,
+                                                              pair.verb2,
+                                                              entity)
+                            if reverse:
+                                if pair.verb2 == verb1:
+                                    if pair.verb1 not in events:
+                                        score[pair.verb1] += self.pmi(pair.verb1,
+                                                                      verb1,
+                                                                      entity)
 
             if len(score) > 0:
                 best, val = max(score.items(), key=lambda x: x[1])
