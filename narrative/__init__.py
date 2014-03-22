@@ -225,6 +225,30 @@ class NarrativeBank:
                     return True
         return False
 
+    # Visualization ----------------------------------------------------------
+
+    def nx_event_graph_for (self, entity):
+
+        import networkx as nx
+
+        graph = nx.Graph()
+
+        for event in self.events_for(entity):
+            graph.add_node(event.verb.encode('utf-8'))
+
+        for pair in self.pairs_for(entity):
+            if pair.entity == entity:
+                v1 = pair.verb1.encode('utf-8')
+                v2 = pair.verb2.encode('utf-8')
+                score = self.pmi(v1, v2, entity)
+                if score > 0:
+                    graph.add_edge(v1, v2, weight=score)
+
+        edge_labels = dict([((u,v,), '%.3g' % d['weight']) for u,v,d in graph.edges(data=True)]);
+        graph.graph['edge_labels'] = edge_labels
+
+        return graph
+
     def doc_graph(self, doc, outputfile):
 
         import pygraphviz as pgv
