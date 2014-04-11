@@ -7,14 +7,15 @@ Pair = namedtuple("Pair", ["entity", "verb1", "verb2"])
 
 class NarrativeBank:
 
-    def __init__(self, filelist=None, mode='dep'):
+    def __init__(self, filelist=None, mode='dep', typed=False):
 
         self.noun_tags = [u'NN', u'NNS', u'NNP', u'NNPS']
         self.verb_tags = [u'VB', u'VBD', u'VBG', u'VBN', u'VBP', u'VBZ']
-        self.relations = [u'nsubj', u'xsubj', u'dobj',
-                          u'iobj', u'agent', u'nsubjpass']
+        self.relations = [u'nsubj', u'xsubj', u'agent',
+                          u'iobj', u'dobj', u'nsubjpass']
 
         self._mode = mode
+        self._typed = typed
         self.events = defaultdict(int)
         self.pairs = defaultdict(int)
         if filelist is not None:
@@ -24,8 +25,8 @@ class NarrativeBank:
 
     def pmi(self, verb1, verb2, entity=None):
         """ Returns the PMI between two events (verbs) given a 
-        specified protagonist. If none is provided, the PMI is computed
-        corpus-wide.
+        specified protagonist. If none is provided, the PMI is
+        computed corpus-wide.
         """
 
         if entity:
@@ -212,6 +213,11 @@ class NarrativeBank:
                 if self.valid_dep(rel):
                     ent = unicode(rel.dep) if word else rel.dep.lem.lower()
                     verb = unicode(rel.gov) if word else rel.gov.lem.lower()
+                    if (self._typed):
+                        if rel.type in self.relations[0:3]:
+                            verb += '-subj'
+                        else:
+                            verb += '-obj'
                     ent_verb_map[ent].append(verb)
         return ent_verb_map
 
@@ -246,7 +252,8 @@ class NarrativeBank:
                 if score > 0:
                     graph.add_edge(v1, v2, weight=score)
 
-        edge_labels = dict([((u,v,), '%.3g' % d['weight']) for u,v,d in graph.edges(data=True)]);
+        edge_labels = dict([((u,v,), '%.3g' % d['weight']) \
+                        for u,v,d in graph.edges(data=True)]);
         graph.graph['edge_labels'] = edge_labels
 
         return graph
