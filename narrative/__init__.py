@@ -7,7 +7,7 @@ Pair = namedtuple("Pair", ["entity", "verb1", "verb2"])
 
 class NarrativeBank:
 
-    def __init__(self, filelist=None, mode='dep', typed=False):
+    def __init__(self, filelist=None, mode='dep', typed=False, word=False):
 
         self.noun_tags = [u'NN', u'NNS', u'NNP', u'NNPS']
         self.verb_tags = [u'VB', u'VBD', u'VBG', u'VBN', u'VBP', u'VBZ']
@@ -16,6 +16,7 @@ class NarrativeBank:
 
         self._mode = mode
         self._typed = typed
+        self._word = word
         self.events = defaultdict(int)
         self.pairs = defaultdict(int)
         if filelist is not None:
@@ -88,6 +89,14 @@ class NarrativeBank:
                 break
 
         return events
+
+    def chain_plus(self, head, entity=None, size=6, reverse=False):
+        events = [head]
+        entities = set([x.entity.encode('utf-8') for x in self.entities_in(head)])
+        while len(events) < size:
+            score = defaultdict(float)
+
+
 
     # Counts -----------------------------------------------------------------
 
@@ -173,7 +182,7 @@ class NarrativeBank:
                 else:
                     self.events[Event(verbs[0], ent)] += 1
 
-    def aggregate_tokens(self, doc, word=False):
+    def aggregate_tokens(self, doc):
 
         ent_verb_map = defaultdict(list)
         for s in doc:
@@ -183,10 +192,10 @@ class NarrativeBank:
 
             for t in s:
                 if t.pos in self.noun_tags:
-                    ent = unicode(t) if word else t.lem.lower()
+                    ent = unicode(t) if self._word else t.lem.lower()
                     ent_cache.append(ent)
                 if t.pos in self.verb_tags:
-                    next_verb = unicode(t) if word else t.lem.lower()
+                    next_verb = unicode(t) if self._word else t.lem.lower()
                     for ent in ent_cache:
                         if last_verb is not None:
                             ent_verb_map[ent].extend([last_verb, next_verb])
@@ -201,7 +210,7 @@ class NarrativeBank:
 
         return ent_verb_map
 
-    def aggregate_deps(self, doc, word=False):
+    def aggregate_deps(self, doc):
         """Extracts a set of valid narrative events from a
         document, groups by entity name, and returns an
         entity-verb(s) mapping.
@@ -211,8 +220,9 @@ class NarrativeBank:
         for sent in doc:
             for rel in sent.deps:
                 if self.valid_dep(rel):
-                    ent = unicode(rel.dep) if word else rel.dep.lem.lower()
-                    verb = unicode(rel.gov) if word else rel.gov.lem.lower()
+                    ent = self.get_mentions_head(rel.dep, doc)
+                    ent = unicode(ent) if self._word else ent.lem.lower()
+                    verb = unicode(rel.gov) if self._word else rel.gov.lem.lower()
                     if (self._typed):
                         if rel.type in self.relations[0:3]:
                             verb += '-subj'
@@ -232,6 +242,10 @@ class NarrativeBank:
                 if rel.dep.pos in self.noun_tags:
                     return True
         return False
+
+    def get_mentions_head(self, token, doc):
+        mentions = doc.mention_chain(token)
+        return mentions.rep_head if mentions else token
 
     # Visualization ----------------------------------------------------------
 
