@@ -25,9 +25,9 @@ class NarrativeBank:
     # PMI --------------------------------------------------------------------
 
     def pmi(self, verb1, verb2, entity=None):
-        """ Returns the PMI between two events (verbs) given a 
-        specified protagonist. If none is provided, the PMI is
-        computed corpus-wide.
+        """Returns the Pointwise Mutual Information score between
+        two events (verbs) given a specified protagonist. If none
+        is provided, the PMI is computed corpus-wide.
         """
 
         if entity:
@@ -59,6 +59,15 @@ class NarrativeBank:
     # Chain ------------------------------------------------------------------
 
     def chain(self, head, entity=None, size=6, reverse=False):
+        """Constructs a narrative chain given a starting head verb
+        and specified protagonist. If none is provided, the chain is
+        computed corpus-wide.
+
+        - Size: indicates the maximum length of the desired chain.
+        - Reverse: turns on/off bi-directionality of relations.
+
+        Returns a list of verbs (or events) in the chain.
+        """
         events = [head]
         while len(events) < size:
             score = defaultdict(float)
@@ -91,12 +100,22 @@ class NarrativeBank:
         return events
 
     def chain_plus(self, head, entity=None, size=6, reverse=False):
+        """Constructs a narrative chain given a starting head verb
+        and a specified protagonist taking into account overlapping
+        arguments of verb pairs. If no protagonist is provided, the
+        chain is computed corpus-wide.
+
+        - Size: indicates the maximum length of the desired chain.
+        - Reverse: turns on/off bi-directionality of relations.
+
+        Returns a list of verbs (or events) in the chain.
+        """
         events = [head]
         entities = set([x.entity.encode('utf-8') for x in self.entities_in(head)])
         while len(events) < size:
             score = defaultdict(float)
 
-
+        # TODO(mw2353@gmail.com): Finish the job.
 
     # Counts -----------------------------------------------------------------
 
@@ -123,7 +142,7 @@ class NarrativeBank:
         return [x for x in self.events.keys() if x.entity == entity]
 
     def num_protags(self, verb):
-        """Returns the number of protagonists involved in an event."""
+        """Returns the number of protagonists involved in an event"""
         return sum([self.events[x] for x in self.entities_in(verb)])
 
     def entities_in(self, verb):
@@ -149,6 +168,7 @@ class NarrativeBank:
         return sum([self.pairs[x] for x in self.pairs_involving(verb1, verb2)])
 
     def pairs_involving(self, verb1, verb2):
+        """Returns all pairs of events"""
         return [x for x in self.pairs.keys()
                 if x.verb1 == verb1 and x.verb2 == verb2]
 
@@ -185,17 +205,15 @@ class NarrativeBank:
     def aggregate_tokens(self, doc):
 
         ent_verb_map = defaultdict(list)
-        for s in doc:
-
+        for sent in doc:
             ent_cache = []
             last_verb = None
-
-            for t in s:
-                if t.pos in self.noun_tags:
-                    ent = unicode(t) if self._word else t.lem.lower()
+            for token in sent:
+                if token.pos in self.noun_tags:
+                    ent = unicode(token) if self._word else token.lem.lower()
                     ent_cache.append(ent)
-                if t.pos in self.verb_tags:
-                    next_verb = unicode(t) if self._word else t.lem.lower()
+                if token.pos in self.verb_tags:
+                    next_verb = unicode(token) if self._word else token.lem.lower()
                     for ent in ent_cache:
                         if last_verb is not None:
                             ent_verb_map[ent].extend([last_verb, next_verb])
@@ -244,12 +262,16 @@ class NarrativeBank:
         return False
 
     def get_mentions_head(self, token, doc):
+        """Returns the rep head of an entity coreference chain.
+        """
         mentions = doc.mention_chain(token)
         return mentions.rep_head if mentions else token
 
     # Visualization ----------------------------------------------------------
 
     def nx_event_graph_for (self, entity):
+        """
+        """
 
         import networkx as nx
 
@@ -272,39 +294,45 @@ class NarrativeBank:
 
         return graph
 
-    def doc_graph(self, doc, outputfile):
+    # Centrality -------------------------------------------------------------
 
-        import pygraphviz as pgv
-        import os
+    def pagerank(self, obj, max_iter=500):
+
+        import networkx as nx
+
+        nx_graph = obj if type(obj) is nx.classes.graph.Graph \
+                       else self.nx_event_graph_for(obj)
+
+        return nx.pagerank(nx_graph, max_iter=max_iter)
+
+    # Community --------------------------------------------------------------
+
+    def louvain(self, obj):
+
+        import community
+        import networkx as nx
         
-        if self._mode == 'token':
-            aggregate = self.aggregate_tokens
-        elif self._mode == 'dep':
-            aggregate = self.aggregate_deps
-        else:
-            import sys
-            sys.stderr.write(u'Warning: invalid \'mode\' argument. ' +
-                             u'Doing nothing instead.\n')
-            sys.stderr.flush()
-            return
-      
-        G = pgv.AGraph(strict=False, directed=True)
-        nedges = 0     
-             
-        for ent, verbs in aggregate(doc).items():
-            if len(verbs) > 1:
-                for v1, v2 in izip(verbs[:-1], verbs[1:]):
-                    pmi = self.pmi(v1, v2, ent)
-                    if pmi is not None:
-                        edge_label = u'{}:{:2.2f}'.format(unicode(ent), pmi)
-                        G.add_edge(v1, v2, label=edge_label, key=nedges)
-                        nedges += 1                    
-               
+        nx_graph = obj if type(obj) is nx.classes.graph.Graph \
+                       else self.nx_event_graph_for(obj)
 
-        outputdir = os.path.split(outputfile)[0]
-        if outputdir != '' and not os.path.exists(outputdir):
-            os.makedirs(outputdir)
-        G.layout(prog='dot')
-        G.draw(outputfile)
+        return community.best_partition(nx_graph)
 
+if __name__ == "__main__":
 
+    import sys, pickle
+    from os import listdir
+    from os.path import isfile, join
+
+    # Directory containing xml files annotated by Stanford Dependency Parser
+    filelist = []
+    dep_dir = sys.argv[1]
+    for i, path in enumerate(listdir(dep_dir)):
+        if isfile(join(dep_dir, path)) and ('xml' in path):
+            filelist.append(join(dep_dir, path))
+
+    nb = NarrativeBank(filelist, typed=True)
+
+    # Save as serialized object
+    data = [nb.events, nb.pairs]
+    ser_file = sys.argv[2]
+    pickle.dump(data, ser_file)
