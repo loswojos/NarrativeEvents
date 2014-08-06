@@ -325,7 +325,7 @@ if __name__ == "__main__":
 
     # Directory containing xml files annotated by Stanford Dependency Parser
     filelist = []
-    dep_dir = sys.argv[1]
+    dep_dir = str(sys.argv[1])
     for i, path in enumerate(listdir(dep_dir)):
         if isfile(join(dep_dir, path)) and ('xml' in path):
             filelist.append(join(dep_dir, path))
@@ -334,5 +334,5 @@ if __name__ == "__main__":
 
     # Save as serialized object
     data = [nb.events, nb.pairs]
-    ser_file = sys.argv[2]
-    pickle.dump(data, ser_file)
+    f = open(str(sys.argv[2]), 'w')
+    pickle.dump(data, f)
